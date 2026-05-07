@@ -206,6 +206,5 @@ def handle_game():
             for p in players:
                 send_msg(p, winner)
 
-
 if __name__ == "__main__":
     handle_game()
