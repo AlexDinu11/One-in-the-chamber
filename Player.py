@@ -6,6 +6,9 @@ import threading
 import pickle
 from qol.debug import debug
 
+# DEBUG STATE ON/OFF
+debug_active = False
+
 
 # noinspection PyTypeChecker
 class MultiplierLabel(ctk.CTkLabel):
@@ -47,7 +50,6 @@ class MultiplierLabel(ctk.CTkLabel):
             if duration:
                 self.after(duration, lambda: self.toggle(False))
 
-            pprint(f"[BLINK] Blinking activated: text={self.current_msg}, duration={duration}\n")
             debug(f"Blinking activated: text={self.current_msg}, duration={duration}\n", "blinking", "yellow")
         else:
             pass
@@ -133,7 +135,8 @@ class BuckshotClient(ctk.CTk):
         self.resize_timer = self.after(1000, self.handle_resize)
 
     def initial_resize(self):
-        debug("initial_resize", "debug")
+        if debug_active:
+            debug("initial_resize", "debug")
         self.update()
         self.l = ctk.CTkLabel(self, text="")
         self.l.pack()
@@ -202,7 +205,8 @@ class BuckshotClient(ctk.CTk):
                         widget.configure(height=h) # Progress bars don't take fonts
                 except Exception:
                     pass
-                debug(f"w = {w}, h = {h}, f = {f}")
+                if debug_active:
+                    debug(f"w = {w}, h = {h}, f = {f}")
 
         # Start the recursion from the main window
         resize_all(self)
@@ -218,6 +222,7 @@ class BuckshotClient(ctk.CTk):
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((host, port))
             self.socket = sock  # only assign AFTER successful connect
+            threading.Thread(target=self.receive_loop, daemon=True).start()
         except Exception as e:
             self.status_lbl.configure(text="Server Offline!")
             debug(f"{e}", "error", "red")

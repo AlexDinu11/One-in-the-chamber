@@ -2,6 +2,7 @@ import socket
 import random
 import pickle
 import struct
+import time
 from qol.debug import debug
 
 # --- CONFIGURATION ---
@@ -74,8 +75,11 @@ def handle_game():
     for i in range(2):
         conn, addr = server.accept()
         players.append(conn)
-        send_msg(conn, {"type": "setup", "id": i})
         debug(f"Player {i} at {addr}...", "server")
+
+    for i, conn in enumerate(players):
+        # time.sleep(5)
+        send_msg(conn, {"type": "setup", "id": i})
 
     # 2. Initial Game State
     hp = [3, 3]
