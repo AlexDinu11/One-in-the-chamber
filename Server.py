@@ -200,6 +200,10 @@ def handle_game():
             else:
                 debug(f"Player {current_turn} pressed an invalid option", "error", "red")
 
+        #  ---DEBUG---
+        hp[current_turn] = 0
+        # ---END DEBUG---
+
     for l in range(2):
         if hp[l] == 0:
             winner = {

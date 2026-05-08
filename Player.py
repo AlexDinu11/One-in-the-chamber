@@ -269,8 +269,9 @@ class BuckshotClient(ctk.CTk):
             debug(f"Received update: {data}", "comm", "yellow")
             self.refresh_game_state(data)
 
-        # elif data["type"] == "winner":
-
+        elif data["type"] == "winner":
+            debug(f"Session ended! End confirmation: {data}", "comm", "yellow")
+            self.build_end_screen(data)
 
     # --- 4. GAME UI CONSTRUCTION (Run Once) ---
 
@@ -467,6 +468,34 @@ class BuckshotClient(ctk.CTk):
                     self.opp_item_btns[i].configure(text=opp_items[i])
                 else:
                     self.opp_item_btns[i].configure(text="Empty")
+
+    def build_end_screen(self, data):
+
+        def delete_all(parent):
+
+            for widget in parent.winfo_children():
+                # If this is a container, look inside it too
+                if isinstance(widget, (ctk.CTkFrame, ctk.CTkScrollableFrame)):
+                    delete_all(widget)
+
+                widget.destroy()
+
+        delete_all(self)
+
+        winner = data["winner"]
+        hp_self = data["hp"][self.my_id]
+        hp_opp = data["hp"][self.opp_id]
+
+        self.winner_lbl = ctk.CTkLabel(self, text=f"You died?!? HOW ARE YOU SO BAD??\n I would tell you to kill yourself, BUT YOU'RE ALREADY DEAD")
+        self.winner_lbl.pack(side="top", padx=5, pady=(50, 100))
+        self.winner_lbl.font_size_type = "huge"
+        self.winner_lbl.scale_type = "login"
+
+        self.hp_lbl = ctk.CTkLabel(self, text=f"Your HP: {hp_self}; Opponent's HP: {hp_opp}")
+        self.hp_lbl.pack(side="top", padx=5, pady=10)
+        self.hp_lbl.font_size_type = "small"
+        self.hp_lbl.scale_type = "login"
+
 
 
 if __name__ == "__main__":
