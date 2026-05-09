@@ -1,13 +1,9 @@
-from pprint import pprint
 import struct
 import customtkinter as ctk
 import socket
 import threading
 import pickle
 from qol.debug import debug
-
-# CONFIG
-debug_active = False
 
 
 # noinspection PyTypeChecker
@@ -104,7 +100,6 @@ class BuckshotClient(ctk.CTk):
 
         self.ip_ent = ctk.CTkEntry(self, placeholder_text="IP", width=150, justify="center")
         self.ip_ent.pack(pady=5)
-        self.ip_ent.insert(0, "127.0.0.1")
         self.ip_ent.font_scale_type = "small"
         self.ip_ent.scale_type = "login"
 
@@ -495,15 +490,23 @@ class BuckshotClient(ctk.CTk):
         self.end_frame.place(relx=0.5, rely=0.5, anchor="center")  # perfectly centered
 
         # --- WIN/LOSE TITLE ---
-        self.winner_lbl = ctk.CTkLabel(
-            self.end_frame,
-            text="YOU WON" if won else "YOU DIED",
-            font=("Stencil", 72),
-            text_color="#ED6814" if won else "#630D0D",
-        )
+        if won:
+            self.winner_lbl = ctk.CTkLabel(
+                self.end_frame,
+                text="YOU WON" if family_friendly else "You successfully murdered another person!",
+                font=("Stencil", 72),
+                text_color="#ED6814" if won else "#630D0D",
+            )
+        else:
+            self.winner_lbl = ctk.CTkLabel(
+                self.end_frame,
+                text="YOU DIED" if family_friendly else "You died?!? HOW ARE YOU SO BAD??\nI would tell you to kill yourself,\nBUT YOU'RE ALREADY DEAD",
+                font=("Stencil", 72),
+                text_color="#ED6814" if won else "#630D0D",
+            )
         self.winner_lbl.pack(pady=(0, 40))
         self.winner_lbl.font_scale_type = "huge"
-        self.winner_lbl.scale_type = "login"
+        self.winner_lbl.scale_type = "login" if family_friendly else "game"
 
         # --- SEPARATOR ---
         ctk.CTkFrame(self.end_frame, height=2, fg_color="#3E1605", width=400).pack(pady=(0, 40))
@@ -561,5 +564,21 @@ class BuckshotClient(ctk.CTk):
 
 
 if __name__ == "__main__":
+
+    check = input("Press enter to start game ")
+    debug_active = False
+    family_friendly = True
+
+    if check == "567812":
+        _debug_ = input("Debug code: ")
+        _ff_ = input("FF code: ")
+
+        if _debug_ == "529674":
+            debug_active = True
+
+        if _ff_ == "549832":
+            debug("Family friendly mode off", "warning", "red")
+            family_friendly = False
+
     app = BuckshotClient()
     app.mainloop()
