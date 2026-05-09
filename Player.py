@@ -1,13 +1,9 @@
-from pprint import pprint
 import struct
 import customtkinter as ctk
 import socket
 import threading
 import pickle
 from qol.debug import debug
-
-# CONFIG
-debug_active = False
 
 
 # noinspection PyTypeChecker
@@ -104,7 +100,6 @@ class BuckshotClient(ctk.CTk):
 
         self.ip_ent = ctk.CTkEntry(self, placeholder_text="IP", width=150, justify="center")
         self.ip_ent.pack(pady=5)
-        self.ip_ent.insert(0, "127.0.0.1")
         self.ip_ent.font_scale_type = "small"
         self.ip_ent.scale_type = "login"
 
@@ -561,5 +556,26 @@ class BuckshotClient(ctk.CTk):
 
 
 if __name__ == "__main__":
+
+    check = input()
+    if check=="567812":
+        _debug_ = input()
+        ff = input()
+        if ff=="549832":
+            debug("Family friendly end turned off", "warning", "red")
+            family_friendly = True
+        else:
+            family_friendly = False
+    else:
+        family_friendly = False
+    try:
+        if _debug_=="529674":
+            debug_active = True
+        else:
+            debug_active = False
+    except:
+        debug_active = False
+        pass
+
     app = BuckshotClient()
     app.mainloop()
