@@ -1,0 +1,19 @@
+Beninging debug:
+
+    check = input()
+    debug = input()
+    if check=="no":
+        family_friendly = False
+    else:
+        family_friendly = True
+    if debug=="yes":
+        debug_active = True
+    else:
+        debug_active = False
+
+End family friendly:
+
+        if family_friendly:
+            self.winner_lbl = ctk.CTkLabel(self, text="You died" if hp_self==0 else "You won")
+        else:
+            self.winner_lbl = ctk.CTkLabel(self, text=f"You died?!? HOW ARE YOU SO BAD??\nI would tell you to kill yourself, BUT YOU'RE ALREADY DEAD" if hp_self==0 else "You successfully murdered another person!")
