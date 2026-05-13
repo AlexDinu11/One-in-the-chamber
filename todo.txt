@@ -1,0 +1,14 @@
+DONE:
+    - Figure out online connection
+
+
+IN PROGRESS:
+    - Add end screen
+        - add handle_msg logic
+        - add winner def
+        - add loser def
+
+FUTURE:
+    - Add usernames
+    - Add stats
+    - Add saves
