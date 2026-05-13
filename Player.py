@@ -1,13 +1,9 @@
-from pprint import pprint
 import struct
 import customtkinter as ctk
 import socket
 import threading
 import pickle
 from qol.debug import debug
-
-# DEBUG STATE ON/OFF
-debug_active = False
 
 
 # noinspection PyTypeChecker
@@ -92,7 +88,7 @@ class BuckshotClient(ctk.CTk):
 
     def setup_login_ui(self):
         """Initial screen to enter IP and Port."""
-        self.title_lbl = ctk.CTkLabel(self, text="Buckshot Roulette", font=("Stencil", self.font_size1), width=self.label_size1_x, height=self.label_size1_y)
+        self.title_lbl = ctk.CTkLabel(self, text="One in the Chamber", font=("Stencil", self.font_size1), width=self.label_size1_x, height=self.label_size1_y)
         self.title_lbl.pack(pady=10, padx=100)
         self.title_lbl.font_scale_type = "huge"
         self.title_lbl.scale_type = "login"
@@ -104,7 +100,6 @@ class BuckshotClient(ctk.CTk):
 
         self.ip_ent = ctk.CTkEntry(self, placeholder_text="IP", width=150, justify="center")
         self.ip_ent.pack(pady=5)
-        self.ip_ent.insert(0, "127.0.0.1")
         self.ip_ent.font_scale_type = "small"
         self.ip_ent.scale_type = "login"
 
@@ -222,6 +217,8 @@ class BuckshotClient(ctk.CTk):
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((host, port))
             self.socket = sock  # only assign AFTER successful connect
+            self.conn_btn.configure(state="disabled")
+            self.status_lbl.configure(text="Awaiting second player...")
             threading.Thread(target=self.receive_loop, daemon=True).start()
         except Exception as e:
             self.status_lbl.configure(text="Server Offline!")
@@ -249,7 +246,11 @@ class BuckshotClient(ctk.CTk):
             data += packet
         return data
 
-    def send_action(self, action, target, item_idx):
+    def request_rematch(self):
+        self.play_again.configure(state="disabled", text="WAITING")
+        self.send_action("rematch")
+
+    def send_action(self, action, target = None, item_idx = None):
         """Sends player move to the server."""
         payload = {"action": action, "target": target, "item_idx": item_idx}
         debug(f"Sending payload: {payload}", "comm", "yellow")
@@ -270,21 +271,23 @@ class BuckshotClient(ctk.CTk):
             self.refresh_game_state(data)
 
         elif data["type"] == "winner":
-            debug(f"Session ended! End confirmation: {data}", "comm", "yellow")
+            debug(f"Match ended! End confirmation: {data}", "comm", "yellow")
             self.build_end_screen(data)
 
     # --- 4. GAME UI CONSTRUCTION (Run Once) ---
 
     def build_game_interface(self):
         """Destroys login UI and builds the persistent game frames."""
-        self.title_lbl.destroy()
-        self.status_lbl.destroy()
-        self.ip_ent.destroy()
-        self.port_ent.destroy()
-        self.conn_btn.destroy()
+        def delete_all(parent):
+            for widget in parent.winfo_children():
+                if isinstance(widget, (ctk.CTkFrame, ctk.CTkScrollableFrame)):
+                    delete_all(widget)
+                widget.destroy()
+
+        delete_all(self)
 
         # --- TITLE ---
-        self.w_title = ctk.CTkLabel(self, text="Buckshot roulette", font=("Stencil", 20))
+        self.w_title = ctk.CTkLabel(self, text="One in the Chamber", font=("Stencil", 20))
         self.w_title.pack(anchor="w", padx=5)
         self.w_title.font_scale_type = "small"
 
@@ -470,34 +473,110 @@ class BuckshotClient(ctk.CTk):
                     self.opp_item_btns[i].configure(text="Empty")
 
     def build_end_screen(self, data):
-
         def delete_all(parent):
-
             for widget in parent.winfo_children():
-                # If this is a container, look inside it too
                 if isinstance(widget, (ctk.CTkFrame, ctk.CTkScrollableFrame)):
                     delete_all(widget)
-
                 widget.destroy()
 
         delete_all(self)
 
-        winner = data["winner"]
         hp_self = data["hp"][self.my_id]
         hp_opp = data["hp"][self.opp_id]
+        won = hp_self != 0
 
-        self.winner_lbl = ctk.CTkLabel(self, text=f"You died?!? HOW ARE YOU SO BAD??\n I would tell you to kill yourself, BUT YOU'RE ALREADY DEAD")
-        self.winner_lbl.pack(side="top", padx=5, pady=(50, 100))
-        self.winner_lbl.font_size_type = "huge"
+        # --- CENTERED CONTAINER ---
+        self.end_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.end_frame.place(relx=0.5, rely=0.5, anchor="center")  # perfectly centered
+
+        # --- WIN/LOSE TITLE ---
+        self.winner_lbl = ctk.CTkLabel(
+            self.end_frame,
+            text="YOU WON" if won else "YOU DIED",
+            font=("Stencil", 72),
+            text_color="#ED6814" if won else "#630D0D",
+        )
+        self.winner_lbl.pack(pady=(0, 40))
+        self.winner_lbl.font_scale_type = "huge"
         self.winner_lbl.scale_type = "login"
 
-        self.hp_lbl = ctk.CTkLabel(self, text=f"Your HP: {hp_self}; Opponent's HP: {hp_opp}")
-        self.hp_lbl.pack(side="top", padx=5, pady=10)
-        self.hp_lbl.font_size_type = "small"
-        self.hp_lbl.scale_type = "login"
+        # --- SEPARATOR ---
+        ctk.CTkFrame(self.end_frame, height=2, fg_color="#3E1605", width=400).pack(pady=(0, 40))
 
+        # --- HP DISPLAY (side by side) ---
+        self.hp_frame = ctk.CTkFrame(self.end_frame, fg_color="transparent")
+        self.hp_frame.pack(pady=(0, 40))
+
+        self.hp_self_lbl = ctk.CTkLabel(
+            self.hp_frame,
+            text=f"YOUR HP\n{hp_self}",
+            font=("Stencil", 36),
+            fg_color="#1A0F0F",
+            corner_radius=8,
+            width=150,
+            height=100,
+            text_color="#ED6814" if won else "#630D0D",
+        )
+        self.hp_self_lbl.pack(side="left", padx=20)
+        self.hp_self_lbl.font_scale_type = "med"
+        self.hp_self_lbl.scale_type = "login"
+
+        self.hp_opp_lbl = ctk.CTkLabel(
+            self.hp_frame,
+            text=f"OPP HP\n{hp_opp}",
+            font=("Stencil", 36),
+            fg_color="#1A0F0F",
+            corner_radius=8,
+            width=150,
+            height=100,
+            text_color="#630D0D" if won else "#ED6814",
+        )
+        self.hp_opp_lbl.pack(side="left", padx=20)
+        self.hp_opp_lbl.font_scale_type = "med"
+        self.hp_opp_lbl.scale_type = "login"
+
+        # --- PLAY AGAIN BUTTON ---
+        self.play_again = ctk.CTkButton(
+            self.end_frame,
+            text="PLAY AGAIN",
+            height=75,
+            fg_color="#2F4F4F",
+            hover_color="#3E5F5F",
+            border_color="#1A2421",
+            border_width=3,
+            corner_radius=2,
+            text_color="#E3DAC9",
+            command=self.request_rematch
+        )
+        self.play_again.pack(pady=(0, 20))
+        self.play_again.font_scale_type = "med"
+        self.play_again.scale_type = "login"
+
+        self.after(0, lambda: self.handle_resize())
 
 
 if __name__ == "__main__":
+
+    check = input()
+    _debug_ = None
+    if check=="567812":
+        _debug_ = input()
+        ff = input()
+        if ff=="549832":
+            debug("Family friendly end turned off", "warning", "red")
+            family_friendly = True
+        else:
+            family_friendly = False
+    else:
+        family_friendly = False
+    try:
+        if _debug_=="529674":
+            debug_active = True
+        else:
+            debug_active = False
+    except:
+        debug_active = False
+        pass
+
     app = BuckshotClient()
     app.mainloop()
