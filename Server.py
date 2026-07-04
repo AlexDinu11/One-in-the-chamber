@@ -240,7 +240,6 @@ def handle_game():
         if disconnect:
             break
 
-        # Both ready — send setup with correct IDs to restart
         for p, conn in enumerate(players):
             send_msg(conn, {"type": "setup", "id": p})
 
