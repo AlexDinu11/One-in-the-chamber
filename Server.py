@@ -32,7 +32,7 @@ def recv_msg(conn, raise_on_error=False):
         return pickle.loads(data)
     except Exception as e:
         if raise_on_error:
-            raise  # let it propagate to the caller
+            raise
         return None
 
 
@@ -53,8 +53,6 @@ def generate_items(item_lst, items):
                     item_lst[p][q] = i
                     debug(f"Item added to Player {p}: {i}", "update")
                     break
-                else:
-                    pass
     debug(f"Items replenished; Player item list: {item_lst}", "update")
     return item_lst
 
@@ -63,7 +61,7 @@ def generate_items(item_lst, items):
 
 def handle_game():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allows restart without port busy error
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind((SERVER_IP, PORT))
     server.listen(2)
     debug(f"Listening on {PORT}", "server")
@@ -76,11 +74,10 @@ def handle_game():
         debug(f"Player {p} at {addr}...", "server")
 
     for p, conn in enumerate(players):
-        # time.sleep(5)
         send_msg(conn, {"type": "setup", "id": p})
 
     while True:
-        # Initial Game State
+        # 2. Initial Game State
         hp = [3, 3]
         dmg = 1
         show_shell = 0
@@ -94,11 +91,10 @@ def handle_game():
         magazine, live, blank, mag_regens = generate_magazine(mag_regens)
         all_player_items = generate_items(all_player_items, items)
         current_turn = random.randint(0, 1)
-        debug(f"State initialized. Game state: HP = {hp}, DMG multiplier = {dmg}, Mag regens = {mag_regens}, Player items = {all_player_items}; Game initializing...", "setup")
+        debug(f"State initialized. HP = {hp}, DMG = {dmg}, Items = {all_player_items}", "setup")
 
-        # Game loop
+        # 3. Game Loop
         while hp[0] != 0 and hp[1] != 0:
-            # Update everyone on the current state
             update = {
                 "type": "update",
                 "turn": current_turn,
@@ -117,13 +113,16 @@ def handle_game():
             for p in players:
                 send_msg(p, update)
 
-            # Wait for the active player's choice
             active_conn = players[current_turn]
             debug(f"Waiting for Player {current_turn}...", "game")
 
             data = recv_msg(active_conn)
-            if not data:  # Disconnect handle
+            if not data:
                 debug("PLAYER DISCONNECTED; ENDING SESSION...", "game")
+                for p in players:
+                    p.close()
+                server.close()
+                return
 
             action = data.get("action")
             rtarget = data.get("target")
@@ -131,38 +130,34 @@ def handle_game():
             if action == "shoot":
                 shell = magazine.pop(0)
 
-                # Process Shot
                 if shell == 1:  # LIVE ROUND
                     target = 1 if current_turn == 0 else 0
                     if dmg == 2:
                         if rtarget == "OPPONENT":
                             hp[target] -= 2
-                            debug(f"Player {current_turn} shot OPPONENT with LIVE; Player {current_turn} HP: {hp[current_turn]}; Player {target} HP: {hp[target]}", "game")
+                            debug(f"Player {current_turn} shot OPPONENT with LIVE 2x; HP: {hp}", "game")
                         else:
                             hp[current_turn] -= 2
-                            debug(f"Player {current_turn} shot SELF with LIVE; Player {current_turn} HP: {hp[current_turn]}; Player {target} HP: {hp[target]}", "update")
+                            debug(f"Player {current_turn} shot SELF with LIVE 2x; HP: {hp}", "game")
                     else:
                         if rtarget == "OPPONENT":
                             hp[target] -= 1
-                            debug(f"Player {current_turn} shot OPPONENT with LIVE; Player {current_turn} HP: {hp[current_turn]}; Player {target} HP: {hp[target]}", "update")
+                            debug(f"Player {current_turn} shot OPPONENT with LIVE; HP: {hp}", "game")
                         else:
                             hp[current_turn] -= 1
-                            debug(f"Player {current_turn} shot SELF with LIVE; Player {current_turn} HP: {hp[current_turn]}; Player {target} HP: {hp[target]}", "update")
-                    # Turn always swaps on a hit
+                            debug(f"Player {current_turn} shot SELF with LIVE; HP: {hp}", "game")
                     current_turn = 1 if current_turn == 0 else 0
                     last_shell = 1
-                    debug(f"Changing turn; New turn: {current_turn}", "game")
+                    debug(f"Turn → Player {current_turn}", "game")
                 else:  # BLANK ROUND
                     last_shell = 0
-                    # Only swap turn if they shot the opponent; shooting self with blank gives another turn
                     if rtarget == "OPPONENT":
                         debug(f"Player {current_turn} shot OPPONENT with BLANK", "game")
                         current_turn = 1 if current_turn == 0 else 0
-                        debug(f"Changing turn; New turn: {current_turn}", "game")
+                        debug(f"Turn → Player {current_turn}", "game")
                     else:
-                        debug(f"Player {current_turn} shot SELF with BLANK", "game")
+                        debug(f"Player {current_turn} shot SELF with BLANK — keeps turn", "game")
 
-                # Refill magazine if empty
                 if not magazine:
                     magazine, live, blank, mag_regens = generate_magazine(mag_regens)
 
@@ -181,34 +176,36 @@ def handle_game():
                         mk_used = 1
                     else:
                         hp = [hp[0], min(hp[1] + 1, 3)]
-                    debug(f"Player {current_turn} used 'MedKit'; HP now: {hp[current_turn]}", "game")
+                    debug(f"Player {current_turn} used Medkit; HP: {hp[current_turn]}", "game")
 
                 elif item_used == "Saw":
                     dmg = 2
-                    debug(f"Player {current_turn} used 'Saw'", "game")
+                    debug(f"Player {current_turn} used Saw", "game")
 
                 elif item_used == "Magnifying Glass":
-                    show_shell = 1  # Show shell toggle
-                    debug(f"Player {current_turn} used 'Magnifying Glass'", "game")
+                    show_shell = 1
+                    debug(f"Player {current_turn} used Magnifying Glass", "game")
 
                 elif item_used == "Soda Can":
                     can = 1
                     last_shell = magazine.pop(0)
-                    debug(f"Player {current_turn} used 'Soda Can';\nShell popped: {last_shell}", "game")
+                    debug(f"Player {current_turn} used Soda Can; Shell popped: {last_shell}", "game")
 
                 else:
-                    debug(f"Player {current_turn} pressed an invalid option", "error", "red")
+                    debug(f"Player {current_turn} used invalid item: {item_used}", "error", "red")
 
-        for l in range(2):
-            if hp[l] == 0:
-                winner = {
-                    "type": "winner",
-                    "hp": hp,
-                    "winner": 1 if l == 0 else 0,
-                }
-                for p in players:
-                    send_msg(p, winner)
+        # 4. Send Winner
+        loser = next((i for i in range(2) if hp[i] == 0), None)
+        if loser is not None:
+            winner_msg = {
+                "type": "winner",
+                "hp": hp,
+                "winner": 1 if loser == 0 else 0,
+            }
+            for p in players:
+                send_msg(p, winner_msg)
 
+        # 5. Wait for Rematch
         players_ready = [False, False]
         disconnect = False
 
@@ -217,14 +214,14 @@ def handle_game():
                 if not players_ready[i]:
                     p.setblocking(False)
                     try:
-                        data = recv_msg(p, True)
+                        data = recv_msg(p, raise_on_error=True)
                     except:
                         p.setblocking(True)
-                        continue  # no data yet, not disconnected
+                        continue
 
                     p.setblocking(True)
 
-                    if not data:  # only reaches here if recv_msg returned None = disconnected
+                    if not data:
                         debug("Player disconnected, closing session", "END", "blue")
                         disconnect = True
                         break
@@ -232,9 +229,19 @@ def handle_game():
                     if data.get("action") == "rematch":
                         players_ready[i] = True
                         for pp in players:
-                            send_msg(pp, {"type": "setup", "id": i})
+                            send_msg(pp, {"type": "waiting", "players_ready": players_ready})
+
+                if disconnect:
+                    break
+
+            if disconnect:
+                break
+
         if disconnect:
             break
+
+        for p, conn in enumerate(players):
+            send_msg(conn, {"type": "setup", "id": p})
 
     for p in players:
         p.close()

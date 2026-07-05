@@ -1,6 +1,7 @@
 /.venv/
 .idea
 Test.py
-debug.py
 Player.spec
 Shotgun_roulette.spec
+clipboard.txt
+one_in_the_chamber.exe
