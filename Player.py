@@ -57,6 +57,7 @@ class BuckshotClient(ctk.CTk):
         self.last_size = (0, 0)
         self.bind('<Configure>', self.on_resize)
         self.debug_check_value = ctk.StringVar(value="off")
+        self.ui_scale_check_value = ctk.StringVar(value="100%")
         self.debug_active = False
         self.initial_resize()
 
@@ -67,35 +68,40 @@ class BuckshotClient(ctk.CTk):
         self.title_lbl.font_scale_type = "huge"
         self.title_lbl.scale_type = "login"
 
-        self.status_lbl = ctk.CTkLabel(self, text="Connect to server", font=("Stencil", 30))
+        self.general_tabview = ctk.CTkTabview(self)
+        self.general_tabview.pack()
+        self.game_tabview = self.general_tabview.add("Game")
+        self.settings_tabview = self.general_tabview.add("Settings")
+
+        self.status_lbl = ctk.CTkLabel(self.game_tabview, text="Connect to server", font=("Stencil", 30))
         self.status_lbl.pack(pady=(10, 100), padx=100)
         self.status_lbl.font_scale_type = "med"
         self.status_lbl.scale_type = "login"
 
-        self.ip_ent = ctk.CTkEntry(self, placeholder_text="IP", width=300, justify="center")
+        self.ip_ent = ctk.CTkEntry(self.game_tabview, placeholder_text="IP", width=300, justify="center")
         self.ip_ent.pack(pady=5)
         self.ip_ent.insert(0, "reseau.proxy.rlwy.net")
         self.ip_ent.font_scale_type = "small"
         self.ip_ent.scale_type = "login"
 
-        self.port_ent = ctk.CTkEntry(self, placeholder_text="PORT", width=150, justify="center")
+        self.port_ent = ctk.CTkEntry(self.game_tabview, placeholder_text="PORT", width=150, justify="center")
         self.port_ent.pack(pady=5)
         self.port_ent.insert(0, "46035")
         self.port_ent.font_scale_type = "small"
         self.port_ent.scale_type = "login"
 
-        self.conn_btn = ctk.CTkButton(self, text="Connect", command=self.connect_to_server)
+        self.conn_btn = ctk.CTkButton(self.game_tabview, text="Connect", command=self.connect_to_server)
         self.conn_btn.pack(pady=20)
         self.conn_btn.font_scale_type = "small"
         self.conn_btn.scale_type = "login"
         
-        self.debug_checkbox = ctk.CTkCheckBox(self, text="Activate Debug mode",
-                                     variable=self.debug_check_value, onvalue="on", offvalue="off", command=self.debug_mode_check)
+        self.debug_checkbox = ctk.CTkCheckBox(self.settings_tabview, text="Activate Debug mode",
+                                              variable=self.debug_check_value, onvalue="on", offvalue="off", command=self.set_settings)
         self.debug_checkbox.pack(pady=20)
         self.debug_checkbox.font_scale_type = "small"
         self.conn_btn.scale_type = "login"
 
-    def debug_mode_check(self):
+    def set_settings(self):
         if self.debug_check_value.get() == "on":
             self.debug_active = True
         else:
@@ -137,7 +143,7 @@ class BuckshotClient(ctk.CTk):
             box_height_sma = int(40 * self.scale) + 6
 
             for widget in parent.winfo_children():
-                if isinstance(widget, (ctk.CTkFrame, ctk.CTkScrollableFrame)):
+                if isinstance(widget, (ctk.CTkFrame, ctk.CTkScrollableFrame, ctk.CTkTabview)):
                     resize_all(widget)
 
                 w_scale = getattr(widget, "font_scale_type", "med")
@@ -168,6 +174,8 @@ class BuckshotClient(ctk.CTk):
                         widget.configure(font=("Stencil", f), width=w, height=h)
                     elif isinstance(widget, ctk.CTkProgressBar):
                         widget.configure(height=h)
+                    elif isinstance(widget, ctk.CTkTabview):
+                        widget._segmented_button.configure(font=("Stencil", f/1.2), width=w/3, height=h/3)
                 except Exception:
                     pass
 
