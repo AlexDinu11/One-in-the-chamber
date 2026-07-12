@@ -1,4 +1,6 @@
 import struct
+
+import customtkinter
 import customtkinter as ctk
 import socket
 import threading
@@ -10,7 +12,8 @@ from qol.debug import debug
 # noinspection PyTypeChecker
 class MultiplierLabel(ctk.CTkLabel):
     def __init__(self, master, **kwargs):
-        super().__init__(master, text="-------------", font=("Stencil", 32), fg_color="#1A0F0F", corner_radius=2, text_color="#3E1605", **kwargs)
+        super().__init__(master, text="-------------", font=("Stencil", 32), fg_color="#1A0F0F", corner_radius=2,
+                         text_color="#3E1605", **kwargs)
 
         self.colors = ["#3E1605", "#5E2106", "#822F09", "#A63D0B", "#C94E10", "#ED6814"]
         self.index = 0
@@ -52,28 +55,32 @@ class BuckshotClient(ctk.CTk):
         super().__init__()
         self.title("One in the Chamber")
         self.after(0, lambda: self.state('zoomed'))
+        ctk.set_appearance_mode("dark")
+        self.themes = {"light": {"bg_color": "#None", "fg_color": "#None", "hover_color": "#aBitDarkerthanFG_COLOR", "border_color": "", "text_color": "#None"}}
         self.socket = None
         self.resize_timer = None
+        self.scale = 1
         self.last_size = (0, 0)
         self.bind('<Configure>', self.on_resize)
-        self.debug_check_value = ctk.StringVar(value="off")
-        self.ui_scale_check_value = ctk.StringVar(value="100%")
-        self.debug_active = False
+        self.debug_active = ctk.BooleanVar(value=False)
+        self.ui_auto_scaling = ctk.BooleanVar(value=True)
+        self.ui_man_scale = ctk.IntVar(value=100)
+        self.light_dark = ctk.StringVar(value="dark")
         self.initial_resize()
 
     def setup_login_ui(self):
 
-        self.title_lbl = ctk.CTkLabel(self, text="One in the Chamber", font=("Stencil", 35), width=500, height=400)
+        self.title_lbl = ctk.CTkLabel(self, text="One in the Chamber", font=("Stencil", 35), text_color="#2B4C7E", width=500, height=400)
         self.title_lbl.pack(pady=10, padx=100)
         self.title_lbl.font_scale_type = "huge"
         self.title_lbl.scale_type = "login"
 
-        self.general_tabview = ctk.CTkTabview(self)
+        self.general_tabview = ctk.CTkTabview(self, width=int(self.winfo_width()*.7))
         self.general_tabview.pack()
         self.game_tabview = self.general_tabview.add("Game")
         self.settings_tabview = self.general_tabview.add("Settings")
 
-        self.status_lbl = ctk.CTkLabel(self.game_tabview, text="Connect to server", font=("Stencil", 30))
+        self.status_lbl = ctk.CTkLabel(self.game_tabview, text="Connect to server", bg_color="#1E3A8A", font=("Stencil", 30), corner_radius=1000)
         self.status_lbl.pack(pady=(10, 100), padx=100)
         self.status_lbl.font_scale_type = "med"
         self.status_lbl.scale_type = "login"
@@ -82,7 +89,7 @@ class BuckshotClient(ctk.CTk):
         self.ip_ent.pack(pady=5)
         self.ip_ent.insert(0, "reseau.proxy.rlwy.net")
         self.ip_ent.font_scale_type = "small"
-        self.ip_ent.scale_type = "login"
+        self.ip_ent.scale_type = "ip_ent"
 
         self.port_ent = ctk.CTkEntry(self.game_tabview, placeholder_text="PORT", width=150, justify="center")
         self.port_ent.pack(pady=5)
@@ -90,22 +97,69 @@ class BuckshotClient(ctk.CTk):
         self.port_ent.font_scale_type = "small"
         self.port_ent.scale_type = "login"
 
-        self.conn_btn = ctk.CTkButton(self.game_tabview, text="Connect", command=self.connect_to_server)
+        self.conn_btn = ctk.CTkButton(self.game_tabview, text="Connect", command=self.connect_to_server, state="disabled")
         self.conn_btn.pack(pady=20)
         self.conn_btn.font_scale_type = "small"
         self.conn_btn.scale_type = "login"
-        
-        self.debug_checkbox = ctk.CTkCheckBox(self.settings_tabview, text="Activate Debug mode",
-                                              variable=self.debug_check_value, onvalue="on", offvalue="off", command=self.set_settings)
+
+        self.light_dark_frame = ctk.CTkFrame(self.settings_tabview, fg_color="#c7c7c7")
+        self.light_dark_frame.pack(pady=20)
+
+        self.light_dark_lbl = ctk.CTkLabel(self.light_dark_frame, text="light")
+        self.light_dark_lbl.pack(padx=5, side="left")
+        self.light_dark_lbl.lbl_type = 2
+
+        self.light_dark_switch = ctk.CTkSwitch(self.light_dark_frame, text="dark",
+                                               variable=self.light_dark, onvalue="dark", offvalue="light",
+                                               command=self.set_light_dark)
+        self.light_dark_switch.pack(padx=5, side="left")
+
+        self.auto_resize_checkbox_frame = ctk.CTkFrame(self.settings_tabview, fg_color="#c7c7c7")
+        self.auto_resize_checkbox_frame.pack(pady=20)
+
+        self.auto_resize_lbl = ctk.CTkLabel(self.auto_resize_checkbox_frame, text="Enable auto UI scaling")
+        self.auto_resize_lbl.pack(side="left", padx=5)
+        self.auto_resize_checkbox = ctk.CTkCheckBox(self.auto_resize_checkbox_frame, text="",
+                                                    variable=self.ui_auto_scaling, onvalue=True, offvalue=False,
+                                                    command=self.ui_slider_update)
+        self.auto_resize_checkbox.pack(side="left", padx=5)
+
+        self.ui_resize_slider_frame = ctk.CTkFrame(self.settings_tabview, fg_color="#c7c7c7")
+        self.ui_resize_slider_frame.pack(pady=20)
+
+        self.ui_slider_lbl = ctk.CTkLabel(self.ui_resize_slider_frame, text="UI scale")
+        self.ui_slider_lbl.pack(pady=5)
+
+        self.ui_slider = ctk.CTkSlider(self.ui_resize_slider_frame, from_=25, to=175, state="disabled", number_of_steps=1500,
+                                       variable=self.ui_man_scale, command=self.ui_lbl_update)
+        self.ui_slider.pack(side="left")
+
+        self.ui_size_lbl = ctk.CTkLabel(self.ui_resize_slider_frame, text=f"100%")
+        self.ui_size_lbl.pack(side="left")
+        self.ui_size_lbl.lbl_type = 2
+
+        self.ui_size_apply_btn = ctk.CTkButton(self.settings_tabview, text="Apply UI", command=self.handle_resize)
+        self.ui_size_apply_btn.pack(pady=20)
+
+        self.debug_checkbox = ctk.CTkCheckBox(self.settings_tabview, text="Enable debug mode",
+                                              variable=self.debug_active, onvalue=True, offvalue=False)
         self.debug_checkbox.pack(pady=20)
         self.debug_checkbox.font_scale_type = "small"
-        self.conn_btn.scale_type = "login"
 
-    def set_settings(self):
-        if self.debug_check_value.get() == "on":
-            self.debug_active = True
+    def ui_lbl_update(self, value=100):
+        if value >= 100:
+            self.ui_size_lbl.configure(text=f"{int(value)}%")
         else:
-            self.debug_active = False
+            self.ui_size_lbl.configure(text=f"{value:.1f}%")
+
+    def ui_slider_update(self):
+        if self.ui_auto_scaling.get():
+            self.ui_slider.configure(state="disabled")
+        else:
+            self.ui_slider.configure(state="normal")
+
+    def set_light_dark(self):
+        ctk.set_appearance_mode(self.light_dark.get())
 
     def on_resize(self, event):
         if event.widget != self:
@@ -118,7 +172,7 @@ class BuckshotClient(ctk.CTk):
         self.resize_timer = self.after(1000, self.handle_resize)
 
     def initial_resize(self):
-        if self.debug_active:
+        if self.debug_active.get():
             debug("initial_resize", "debug")
         self.update()
         self.l = ctk.CTkLabel(self, text="")
@@ -129,7 +183,11 @@ class BuckshotClient(ctk.CTk):
     def handle_resize(self):
         def resize_all(parent):
             self.update_idletasks()
-            self.scale = min(self.winfo_width() / 1920, self.winfo_height() / 1080)
+
+            if self.ui_auto_scaling.get():
+                self.scale = min(self.winfo_width() / 1920, self.winfo_height() / 1080)
+            else:
+                self.scale = int(self.ui_man_scale.get())/100
 
             font_size_huge = int(85 * self.scale) + 12
             font_size_med = int(40 * self.scale) + 10
@@ -157,33 +215,40 @@ class BuckshotClient(ctk.CTk):
                         w, h, f = box_width_sma, box_height_sma, font_size_sma
                     else:
                         w, h, f = box_width_med, box_height_med, font_size_med
+                elif scale_type == "ip_ent":
+                    w, h, f = box_width_sma*2.2, box_height_sma, font_size_sma
                 else:
                     if w_scale == "huge":
-                        w, h, f = box_width_huge/1.5, box_height_huge/1.5, font_size_huge/1.5
+                        w, h, f = box_width_huge / 1.5, box_height_huge / 1.5, font_size_huge / 1.5
                     elif w_scale == "small":
-                        w, h, f = box_width_sma/1.5, box_height_sma/1.5, font_size_sma/1.5
+                        w, h, f = box_width_sma / 1.5, box_height_sma / 1.5, font_size_sma / 1.5
                     else:
-                        w, h, f = box_width_med/1.5, box_height_med/1.5, font_size_med/1.5
+                        w, h, f = box_width_med / 1.5, box_height_med / 1.5, font_size_med / 1.5
 
                 try:
                     if isinstance(widget, (ctk.CTkButton, ctk.CTkEntry)):
                         widget.configure(font=("Stencil", f), width=w, height=h)
+                    elif isinstance(widget, ctk.CTkLabel) and lbl_type == 2:
+                        widget.configure(font=("Stencil", f))
                     elif isinstance(widget, ctk.CTkLabel) and lbl_type == 1:
-                        widget.configure(font=("Stencil", f), width=w*1.3, height=h)
+                        widget.configure(font=("Stencil", f), width=w * 1.3, height=h)
                     elif isinstance(widget, ctk.CTkLabel) and lbl_type == 0:
                         widget.configure(font=("Stencil", f), width=w, height=h)
                     elif isinstance(widget, ctk.CTkProgressBar):
                         widget.configure(height=h)
                     elif isinstance(widget, ctk.CTkTabview):
-                        widget._segmented_button.configure(font=("Stencil", f/1.2), width=w/3, height=h/3)
+                        widget._segmented_button.configure(font=("Stencil", f / 1.2), width=w / 3, height=h / 3)
+                    elif isinstance(widget, ctk.CTkSlider):
+                        widget.configure(width=w*1.5, height=h*.75)
+                    elif isinstance(widget, ctk.CTkSwitch):
+                        widget.configure(switch_width=w*.26, switch_height=h*.6, font=("Stencil", f))
                 except Exception:
                     pass
 
-                if self.debug_active:
+                if self.debug_active.get():
                     debug(f"w = {w}, h = {h}, f = {f}")
-
         resize_all(self)
-        if self.debug_active:
+        if self.debug_active.get():
             debug(f"UI Scaled to: {self.scale:.2f}", "settings", "green")
 
     # --- NETWORKING ---
@@ -245,19 +310,23 @@ class BuckshotClient(ctk.CTk):
             self.opp_id = 1 if self.my_id == 0 else 0
             self.build_game_interface()
             self.p0_title.configure(text=f"PLAYER {self.my_id} (YOU)")
-            debug(f"Received setup: My ID = {self.my_id}", "comm", "yellow")
+            if self.debug_active.get():
+                debug(f"Received setup: My ID = {self.my_id}", "comm", "yellow")
 
         elif data["type"] == "update":
-            debug(f"Received update: {data}", "comm", "yellow")
+            if self.debug_active.get():
+                debug(f"Received update: {data}", "comm", "yellow")
             self.refresh_game_state(data)
 
         elif data["type"] == "winner":
-            debug(f"Match ended! {data}", "comm", "yellow")
+            if self.debug_active.get():
+                debug(f"Match ended! {data}", "comm", "yellow")
             self.build_end_screen(data)
 
         elif data["type"] == "waiting":
             players_ready = data["players_ready"]
-            debug(f"Waiting for rematch: {players_ready}", "comm", "yellow")
+            if self.debug_active.get():
+                debug(f"Waiting for rematch: {players_ready}", "comm", "yellow")
             # Show opponent ready status if play_again button exists
             try:
                 if players_ready[self.opp_id]:
@@ -270,7 +339,7 @@ class BuckshotClient(ctk.CTk):
     def build_game_interface(self):
         def delete_all(parent):
             for widget in parent.winfo_children():
-                if isinstance(widget, (ctk.CTkFrame, ctk.CTkScrollableFrame)):
+                if isinstance(widget, (ctk.CTkFrame, ctk.CTkScrollableFrame, ctk.CTkTabview)):
                     delete_all(widget)
                 widget.destroy()
 
@@ -287,7 +356,8 @@ class BuckshotClient(ctk.CTk):
         self.p0_title.pack(pady=10)
         self.p0_title.font_scale_type = "med"
 
-        self.p0_hp = ctk.CTkProgressBar(self.p0_frame, height=30, fg_color="#1A0F0F", border_color="#3E2731", border_width=3, corner_radius=10, progress_color="#630D0D")
+        self.p0_hp = ctk.CTkProgressBar(self.p0_frame, height=30, fg_color="#1A0F0F", border_color="#3E2731",
+                                        border_width=3, corner_radius=10, progress_color="#630D0D")
         self.p0_hp.pack(pady=5, padx=20, fill="x")
         self.p0_hp.set(1.0)
         self.p0_hp.font_scale_type = "med"
@@ -303,12 +373,14 @@ class BuckshotClient(ctk.CTk):
         self.last_shell_lbl.font_scale_type = "med"
         self.last_shell_lbl.lbl_type = 1
 
-        self.initial_live_bullets_lbl = ctk.CTkLabel(self.rnd_lbl, text_color="#3E1605", font=("Stencil", 32), fg_color="#1A0F0F", corner_radius=2, text="-------------")
+        self.initial_live_bullets_lbl = ctk.CTkLabel(self.rnd_lbl, text_color="#3E1605", font=("Stencil", 32),
+                                                     fg_color="#1A0F0F", corner_radius=2, text="-------------")
         self.initial_live_bullets_lbl.pack(pady=(10, 0), side="left")
         self.initial_live_bullets_lbl.font_scale_type = "med"
         self.initial_live_bullets_lbl.lbl_type = 1
 
-        self.initial_blank_bullets_lbl = ctk.CTkLabel(self.rnd_lbl, text_color="#3E1605", font=("Stencil", 32), fg_color="#1A0F0F", corner_radius=2, text="-------------")
+        self.initial_blank_bullets_lbl = ctk.CTkLabel(self.rnd_lbl, text_color="#3E1605", font=("Stencil", 32),
+                                                      fg_color="#1A0F0F", corner_radius=2, text="-------------")
         self.initial_blank_bullets_lbl.pack(pady=(10, 0), side="left")
         self.initial_blank_bullets_lbl.font_scale_type = "med"
         self.initial_blank_bullets_lbl.lbl_type = 1
@@ -340,12 +412,16 @@ class BuckshotClient(ctk.CTk):
         self.p0_shoot_row = ctk.CTkFrame(self.p0_frame, fg_color="#1F1F1F", border_color="#0F0F0F", height=80)
         self.p0_shoot_row.pack(pady=1, fill="x", expand=True)
 
-        self.btn_opp = ctk.CTkButton(self.p0_shoot_row, text="Shoot Opponent", height=75, fg_color="#2F4F4F", hover_color="#3E5F5F", border_color="#1A2421", border_width=3, corner_radius=2, text_color="#E3DAC9",
+        self.btn_opp = ctk.CTkButton(self.p0_shoot_row, text="Shoot Opponent", height=75, fg_color="#2F4F4F",
+                                     hover_color="#3E5F5F", border_color="#1A2421", border_width=3, corner_radius=2,
+                                     text_color="#E3DAC9",
                                      command=lambda: self.send_action("shoot", "OPPONENT", None))
         self.btn_opp.pack(side="left", padx=10, expand=True)
         self.btn_opp.font_scale_type = "med"
 
-        self.btn_self = ctk.CTkButton(self.p0_shoot_row, text="Shoot Self", height=75, fg_color="#2F4F4F", hover_color="#3E5F5F", border_color="#1A2421", border_width=3, corner_radius=2, text_color="#E3DAC9",
+        self.btn_self = ctk.CTkButton(self.p0_shoot_row, text="Shoot Self", height=75, fg_color="#2F4F4F",
+                                      hover_color="#3E5F5F", border_color="#1A2421", border_width=3, corner_radius=2,
+                                      text_color="#E3DAC9",
                                       command=lambda: self.send_action("shoot", "SELF", None))
         self.btn_self.pack(side="left", padx=10, expand=True)
         self.btn_self.font_scale_type = "med"
@@ -355,7 +431,9 @@ class BuckshotClient(ctk.CTk):
 
         self.item_btns = []
         for i in range(4):
-            btn = ctk.CTkButton(self.p0_item_row, text="Empty", width=150, height=100, fg_color="#2F4F4F", hover_color="#3E5F5F", border_color="#1A2421", border_width=3, corner_radius=2, text_color="#E3DAC9",
+            btn = ctk.CTkButton(self.p0_item_row, text="Empty", width=150, height=100, fg_color="#2F4F4F",
+                                hover_color="#3E5F5F", border_color="#1A2421", border_width=3, corner_radius=2,
+                                text_color="#E3DAC9",
                                 command=lambda idx=i: self.send_action("item", None, idx))
             btn.pack(side="left", padx=5, pady=5, expand=True)
             btn.font_scale_type = "small"
@@ -368,7 +446,8 @@ class BuckshotClient(ctk.CTk):
         self.p1_title.pack(pady=10)
         self.p1_title.font_scale_type = "med"
 
-        self.p1_hp = ctk.CTkProgressBar(self.p1_frame, height=30, fg_color="#1A0F0F", border_color="#3E2731", border_width=3, corner_radius=10, progress_color="#630D0D")
+        self.p1_hp = ctk.CTkProgressBar(self.p1_frame, height=30, fg_color="#1A0F0F", border_color="#3E2731",
+                                        border_width=3, corner_radius=10, progress_color="#630D0D")
         self.p1_hp.pack(pady=(5, 175), padx=20, fill="x")
         self.p1_hp.set(1.0)
         self.p1_hp.font_scale_type = "med"
@@ -383,12 +462,16 @@ class BuckshotClient(ctk.CTk):
         self.opp_item_btns = []
         for i in range(4):
             if i in (0, 1):
-                btn = ctk.CTkButton(self.p1_item_row1, text="Empty", width=150, height=100, state="disabled", fg_color="#2F4F4F", hover_color="#3E5F5F", border_color="#1A2421", border_width=3, corner_radius=2, text_color="#E3DAC9")
+                btn = ctk.CTkButton(self.p1_item_row1, text="Empty", width=150, height=100, state="disabled",
+                                    fg_color="#2F4F4F", hover_color="#3E5F5F", border_color="#1A2421", border_width=3,
+                                    corner_radius=2, text_color="#E3DAC9")
                 btn.pack(side="left", padx=5, pady=5, expand=True)
                 btn.font_scale_type = "med"
                 self.opp_item_btns.append(btn)
             if i in (2, 3):
-                btn = ctk.CTkButton(self.p1_item_row2, text="Empty", width=150, height=100, state="disabled", fg_color="#2F4F4F", hover_color="#3E5F5F", border_color="#1A2421", border_width=3, corner_radius=2, text_color="#E3DAC9")
+                btn = ctk.CTkButton(self.p1_item_row2, text="Empty", width=150, height=100, state="disabled",
+                                    fg_color="#2F4F4F", hover_color="#3E5F5F", border_color="#1A2421", border_width=3,
+                                    corner_radius=2, text_color="#E3DAC9")
                 btn.pack(side="left", padx=5, pady=5, expand=True)
                 btn.font_scale_type = "med"
                 self.opp_item_btns.append(btn)
@@ -428,10 +511,11 @@ class BuckshotClient(ctk.CTk):
         if data["can"] == 1:
             self.skip_rnd.toggle(True, "EMPTIED", 3000)
 
-        if data["last_shell"] == 1:
-            self.last_shell_lbl.toggle(True, "BANG", 3000)
-        elif data["last_shell"] == 0:
-            self.last_shell_lbl.toggle(True, "CLICK", 3000)
+        if data["action"] == "shot" or data["can"] == 1:
+            if data["last_shell"] == 1:
+                self.last_shell_lbl.toggle(True, "BANG", 3000)
+            elif data["last_shell"] == 0:
+                self.last_shell_lbl.toggle(True, "CLICK", 3000)
 
         if data["MK"] == 1:
             self.mk_lbl.toggle(True, "HP+1", 3000)
@@ -529,26 +613,5 @@ class BuckshotClient(ctk.CTk):
 
 
 if __name__ == "__main__":
-
-    # check = input()
-    # if check == "567812":
-    #     _debug_ = input()
-    #     ff = input()
-    #     if ff == "549832":
-    #         debug("Family friendly end turned off", "warning", "red")
-    #         family_friendly = True
-    #     else:
-    #         family_friendly = False
-    # else:
-    #     family_friendly = False
-    #
-    # try:
-    #     if _debug_ == "529674":
-    #         self.debug_active = True
-    #     else:
-    #         self.debug_active = False
-    # except:
-    #     self.debug_active = False
-
     app = BuckshotClient()
     app.mainloop()

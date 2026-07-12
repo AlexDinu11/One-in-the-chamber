@@ -97,6 +97,7 @@ def handle_game():
         while hp[0] != 0 and hp[1] != 0:
             update = {
                 "type": "update",
+                "action": data["action"] if data["action"] else None,
                 "turn": current_turn,
                 "hp": hp,
                 "items": all_player_items,
@@ -118,7 +119,7 @@ def handle_game():
 
             data = recv_msg(active_conn)
             if not data:
-                debug("PLAYER DISCONNECTED; ENDING SESSION...", "game")
+                debug("PLAYER DISCONNECTED; ENDING SESSION...", "end", "blue")
                 for p in players:
                     p.close()
                 server.close()
