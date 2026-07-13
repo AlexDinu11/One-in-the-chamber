@@ -2,7 +2,7 @@ import socket
 import random
 import pickle
 import struct
-from qol.debug import debug
+from qol.debug import dprint
 
 # --- CONFIGURATION ---
 PORT = 8723
@@ -16,7 +16,7 @@ def send_msg(conn, data):
     serialized = pickle.dumps(data)
     header = struct.pack('>I', len(serialized))
     conn.sendall(header + serialized)
-    debug(f"Sent message to all players: {data}", "comm", "yellow")
+    dprint(f"Sent message to all players: {data}", "comm", "yellow")
 
 
 def recv_msg(conn, raise_on_error=False):
@@ -40,7 +40,8 @@ def generate_magazine(reg):
     """Creates a new mag and returns (list, live_count, blank_count)."""
     mag = [random.randint(0, 1) for _ in range(5)]
     reg += 1
-    debug(f"Magazine refilled: {mag}; Magazine regenerations: {reg}", "update") if reg != 1 else debug(f"Magazine refilled: {reg}", "update")
+    dprint(f"Magazine refilled: {mag}; Magazine regenerations: {reg}", "update") if reg != 1 else dprint(
+        f"Magazine refilled: {reg}", "update")
     return mag, mag.count(1), mag.count(0), reg
 
 
@@ -51,9 +52,9 @@ def generate_items(item_lst, items):
             for q in range(4):
                 if item_lst[p][q] == "Empty":
                     item_lst[p][q] = i
-                    debug(f"Item added to Player {p}: {i}", "update")
+                    dprint(f"Item added to Player {p}: {i}", "update")
                     break
-    debug(f"Items replenished; Player item list: {item_lst}", "update")
+    dprint(f"Items replenished; Player item list: {item_lst}", "update")
     return item_lst
 
 
@@ -64,14 +65,14 @@ def handle_game():
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind((SERVER_IP, PORT))
     server.listen(2)
-    debug(f"Listening on {PORT}", "server")
+    dprint(f"Listening on {PORT}", "server")
 
     # 1. Connection Phase
     players = []
     for p in range(2):
         conn, addr = server.accept()
         players.append(conn)
-        debug(f"Player {p} at {addr}...", "server")
+        dprint(f"Player {p} at {addr}...", "server")
 
     for p, conn in enumerate(players):
         send_msg(conn, {"type": "setup", "id": p})
@@ -85,19 +86,21 @@ def handle_game():
         can = 0
         mag_regens = 0
         last_shell = 2
-        items = ["Saw", "Medkit", "Magnifying glass", "Soda Can"]
+        items = ["Saw", "Medkit", "Magnifying Glass", "Soda Can"]
         all_player_items = [["Empty", "Empty", "Empty", "Empty"], ["Empty", "Empty", "Empty", "Empty"]]
 
         magazine, live, blank, mag_regens = generate_magazine(mag_regens)
         all_player_items = generate_items(all_player_items, items)
         current_turn = random.randint(0, 1)
-        debug(f"State initialized. HP = {hp}, DMG = {dmg}, Items = {all_player_items}", "setup")
+        dprint(f"State initialized. HP = {hp}, DMG = {dmg}, Items = {all_player_items}", "setup")
+
+        action = None
 
         # 3. Game Loop
         while hp[0] != 0 and hp[1] != 0:
             update = {
                 "type": "update",
-                "action": data["action"] if data["action"] else None,
+                "action": action,
                 "turn": current_turn,
                 "hp": hp,
                 "items": all_player_items,
@@ -115,11 +118,11 @@ def handle_game():
                 send_msg(p, update)
 
             active_conn = players[current_turn]
-            debug(f"Waiting for Player {current_turn}...", "game")
+            dprint(f"Waiting for Player {current_turn}...", "game")
 
             data = recv_msg(active_conn)
             if not data:
-                debug("PLAYER DISCONNECTED; ENDING SESSION...", "end", "blue")
+                dprint("PLAYER DISCONNECTED; ENDING SESSION...", "end", "blue")
                 for p in players:
                     p.close()
                 server.close()
@@ -136,28 +139,28 @@ def handle_game():
                     if dmg == 2:
                         if rtarget == "OPPONENT":
                             hp[target] -= 2
-                            debug(f"Player {current_turn} shot OPPONENT with LIVE 2x; HP: {hp}", "game")
+                            dprint(f"Player {current_turn} shot OPPONENT with LIVE 2x; HP: {hp}", "game")
                         else:
                             hp[current_turn] -= 2
-                            debug(f"Player {current_turn} shot SELF with LIVE 2x; HP: {hp}", "game")
+                            dprint(f"Player {current_turn} shot SELF with LIVE 2x; HP: {hp}", "game")
                     else:
                         if rtarget == "OPPONENT":
                             hp[target] -= 1
-                            debug(f"Player {current_turn} shot OPPONENT with LIVE; HP: {hp}", "game")
+                            dprint(f"Player {current_turn} shot OPPONENT with LIVE; HP: {hp}", "game")
                         else:
                             hp[current_turn] -= 1
-                            debug(f"Player {current_turn} shot SELF with LIVE; HP: {hp}", "game")
+                            dprint(f"Player {current_turn} shot SELF with LIVE; HP: {hp}", "game")
                     current_turn = 1 if current_turn == 0 else 0
                     last_shell = 1
-                    debug(f"Turn → Player {current_turn}", "game")
+                    dprint(f"Turn → Player {current_turn}", "game")
                 else:  # BLANK ROUND
                     last_shell = 0
                     if rtarget == "OPPONENT":
-                        debug(f"Player {current_turn} shot OPPONENT with BLANK", "game")
+                        dprint(f"Player {current_turn} shot OPPONENT with BLANK", "game")
                         current_turn = 1 if current_turn == 0 else 0
-                        debug(f"Turn → Player {current_turn}", "game")
+                        dprint(f"Turn → Player {current_turn}", "game")
                     else:
-                        debug(f"Player {current_turn} shot SELF with BLANK — keeps turn", "game")
+                        dprint(f"Player {current_turn} shot SELF with BLANK — keeps turn", "game")
 
                 if not magazine:
                     magazine, live, blank, mag_regens = generate_magazine(mag_regens)
@@ -177,23 +180,23 @@ def handle_game():
                         mk_used = 1
                     else:
                         hp = [hp[0], min(hp[1] + 1, 3)]
-                    debug(f"Player {current_turn} used Medkit; HP: {hp[current_turn]}", "game")
+                    dprint(f"Player {current_turn} used Medkit; HP: {hp[current_turn]}", "game")
 
                 elif item_used == "Saw":
                     dmg = 2
-                    debug(f"Player {current_turn} used Saw", "game")
+                    dprint(f"Player {current_turn} used Saw", "game")
 
                 elif item_used == "Magnifying Glass":
                     show_shell = 1
-                    debug(f"Player {current_turn} used Magnifying Glass", "game")
+                    dprint(f"Player {current_turn} used Magnifying Glass", "game")
 
                 elif item_used == "Soda Can":
                     can = 1
                     last_shell = magazine.pop(0)
-                    debug(f"Player {current_turn} used Soda Can; Shell popped: {last_shell}", "game")
+                    dprint(f"Player {current_turn} used Soda Can; Shell popped: {last_shell}", "game")
 
                 else:
-                    debug(f"Player {current_turn} used invalid item: {item_used}", "error", "red")
+                    dprint(f"Player {current_turn} used invalid item: {item_used}", "error", "red")
 
         # 4. Send Winner
         loser = next((i for i in range(2) if hp[i] == 0), None)
@@ -223,7 +226,7 @@ def handle_game():
                     p.setblocking(True)
 
                     if not data:
-                        debug("Player disconnected, closing session", "END", "blue")
+                        dprint("Player disconnected, closing session", "END", "blue")
                         disconnect = True
                         break
 
