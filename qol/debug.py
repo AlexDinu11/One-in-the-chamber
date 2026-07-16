@@ -1,7 +1,7 @@
 from pprint import pprint
 
 
-def debug(obj: object, label: str = "DEBUG", color: str = "green") -> None:
+def dprint(obj: str, label: str = "debug", color: str = "green") -> None:
     # ANSI Color Codes
     colors = {
         "red": "\033[91m",
