@@ -1,6 +1,5 @@
 import subprocess
 import platform
-import winreg
 
 import customtkinter as ctk
 from .debug import dprint
@@ -105,6 +104,8 @@ THEME = {
 }
 
 def get_system_theme():
+    import winreg
+
     system = platform.system()
 
     if system == "Windows":
@@ -192,8 +193,7 @@ def recolor(master, settings):
     recolor_widget(master, INITIAL_FRAME_LAYER)
 
 
-# noinspection SpellCheckingInspection
-if "__main__" == __name__:
+if __name__ == "__main__":
     root = ctk.CTk()
 
     frame1 = ctk.CTkFrame(root)
