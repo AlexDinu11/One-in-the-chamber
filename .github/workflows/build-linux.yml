@@ -1,0 +1,33 @@
+name: Build Linux
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout sync branch
+      uses: actions/checkout@v4
+      with:
+        ref: sync
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.13"
+
+    - name: Install PyInstaller
+      run: |
+        pip install pyinstaller
+
+    - name: Build
+      run: |
+        pyinstaller --onefile main.py
+
+    - name: Upload executable
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-build
+        path: dist/main
