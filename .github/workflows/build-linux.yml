@@ -8,17 +8,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
+    - name: Checkout sync branch
       uses: actions/checkout@v4
+      with:
+        ref: sync
 
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
-        python-version: "3.12"
+        python-version: "3.13"
 
-    - name: Install dependencies
+    - name: Install PyInstaller
       run: |
-        pip install -r requirements.txt
         pip install pyinstaller
 
     - name: Build
